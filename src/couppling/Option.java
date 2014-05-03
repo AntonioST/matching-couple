@@ -5,7 +5,8 @@
 package couppling;
 
 import java.io.Serializable;
-import java.util.Objects;
+import java.util.*;
+import java.util.function.BiPredicate;
 
 /**
  *
@@ -13,48 +14,34 @@ import java.util.Objects;
  */
 public abstract class Option implements Serializable{
 
+    public static final Map<String, Option> SET = new HashMap<>();
+    public final String category;
+    public final Set<String> defSet;
+    public final Set<String> allSet;
+    public final BiPredicate<String, String> rule;
 
-    //
-    private String doc;
-
-    public Option(String doc){
-        this.doc = doc;
-        Main.log.printf("[%s] create: %s\n", getClass().getSimpleName(), doc);
+    public Option(String category, String[] contents){
+        this(category, contents, RuleMaker.equalMatcher);
     }
 
-    public String getDoc(){
-        return doc;
-    }
-
-    public MatchRule getRule(){
-        return RuleMaker.equalMatcher;
-    }
-
-    @Override
-    public boolean equals(Object obj){
-        if (this == obj) return true;
-        if (obj == null) return false;
-        if (getClass() != obj.getClass()) return false;
-        Option that = (Option)obj;
-        if (doc == null ? that.doc != null : !doc.equals(that.doc)) {
-            return false;
+    public Option(String category, String[] contents, BiPredicate<String, String> rule){
+        if (SET.containsKey(category)) {
+            throw new RuntimeException(category + " has existed");
         }
-        return true;
+        this.category = category;
+        defSet = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(contents)));
+        this.rule = rule;
+        allSet = new HashSet<>();
+        allSet.addAll(defSet);
+        SET.put(category, this);
     }
 
-    @Override
-    public int hashCode(){
-        int hash = 7;
-        hash = 19 * hash + Objects.hashCode(this.doc);
-        return hash;
+    public static void add(String category, String content){
+        Option op = SET.get(category);
+        if (op == null) {
+            throw new RuntimeException(category + " doesn't exist");
+        }
+        op.allSet.add(content);
     }
 
-    public boolean match(Option o){
-        return getRule().match(this, o);
-    }
-
-    @Override
-    public String toString(){
-        return doc;
-    }
 }

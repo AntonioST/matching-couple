@@ -8,8 +8,9 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
-import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -22,12 +23,7 @@ public class RuleMaker{
     private static final String regx = "(.+?) *(==?) *(.+)";
     private static final Pattern pattern = Pattern.compile(regx);
     private static final Lookup look = MethodHandles.lookup();
-    public static final MatchRule equalMatcher = new MatchRule(){
-        @Override
-        public boolean match(Option p, Option q){
-            return p == q;
-        }
-    };
+    public static final BiPredicate<String, String> equalMatcher = (p, q) -> p == q;
 
     private static boolean isBothDir(String s){
         return "==".equals(s);
@@ -38,19 +34,20 @@ public class RuleMaker{
     }
 
     private RuleMaker(){
+        throw new UnsupportedOperationException();
     }
 
     public static <T extends Option> MatchRule make(Class<T> cls, String[] lines){
         Matcher m = pattern.matcher("");
         LinkedList<LinkedMatchRule> ls = new LinkedList<>();
-        for (String line : lines) {
+        for (String line: lines) {
             m.reset(line);
             if (m.matches()) {
                 String g1 = m.group(1);
                 String g3 = m.group(3);
                 if ("$".equals(g1) && "$".equals(g3)) {
                     ls.add(new LinkedEqualMatchRule());
-                }else if("<".equals(g3)){
+                } else if ("<".equals(g3)) {
                     EqualTest e1 = create(cls, g1);
                     ls.add(new LinkedMatchRule(e1, e1));
                 } else {
@@ -94,7 +91,7 @@ public class RuleMaker{
         }
         String[] opts = line.split("[, ]");
         LinkedList<Option> ls = new LinkedList<>();
-        for (String op : opts) {
+        for (String op: opts) {
             if (op.isEmpty()) continue;
             ls.add(get(cls, op));
         }
@@ -104,12 +101,13 @@ public class RuleMaker{
     private static class LinkedMatchRule implements MatchRule{
 
         LinkedMatchRule next = null;
-        EqualTest left = null;
-        EqualTest right = null;
+        Predicate<Option> left = null;
+        Predicate<Option> right = null;
 
-        public LinkedMatchRule(EqualTest l, EqualTest r){
+        LinkedMatchRule(LinkedMatchRule prev, Predicate<Option> l, Predicate<Option> r){
             left = l;
             right = r;
+            prev.next = this;
         }
 
         @Override
@@ -126,8 +124,8 @@ public class RuleMaker{
 
     private static class LinkedEqualMatchRule extends LinkedMatchRule{
 
-        public LinkedEqualMatchRule(){
-            super(null, null);
+        LinkedEqualMatchRule(LinkedMatchRule prev){
+            super(prev, null, null);
         }
 
         @Override
@@ -135,42 +133,24 @@ public class RuleMaker{
             if (p == q) {
                 return true;
             }
-            return next == null ? false : true;
+            return next == null ? false : next.match(p, q);
         }
     }
 
-    private static class EqualTest{
+    private static Predicate<Option> equalTest(final Option op){
+        return p -> p == null ? false : op == p;
+    }
 
-        Option[] opt;
-
-        public EqualTest(Option[] text){
-            this.opt = text;
-        }
-
-        public boolean test(Option s){
-            if (s == null) return false;
-            for (Option o : opt) {
-                if (o == s) {
-                    return true;
-                }
+    private static Predicate<Option> equalTest(final Option op, final Option... ops){
+        return p -> {
+            if (p == null) return false;
+            if (p == op) return true;
+            for (Option opt: ops) {
+                if (p == opt) return true;
             }
             return false;
-        }
-
-        @Override
-        public String toString(){
-            return String.format("t%s", Arrays.toString(opt));
-        }
+        };
     }
-    private static final EqualTest star = new EqualTest(null){
-        @Override
-        public boolean test(Option s){
-            return true;
-        }
 
-        @Override
-        public String toString(){
-            return "t[*]";
-        }
-    };
+    protected static final Predicate<Option> starTest = p -> true;
 }
