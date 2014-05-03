@@ -5,11 +5,7 @@
 package couppling;
 
 import java.io.Serializable;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.Objects;
-import java.util.Random;
-import java.util.WeakHashMap;
+import java.util.*;
 
 /**
  *
@@ -18,30 +14,11 @@ import java.util.WeakHashMap;
 public class Person implements Serializable{
 
     private static final Random rand = new Random();
-    private static final int[] attps = Main.loadIntArray("point.attribute");
-    private static final int[] ittps = Main.loadIntArray("point.interest");
+    private static final WeakHashMap<String, Person> people = new WeakHashMap<>();
     //
-    private static final WeakHashMap<String, Person> pool = new WeakHashMap<>();
-    //
-    private String name;
-    private Gender selfGender;
-    private Gender loveGender;
-    private String[] selfAttS;
-    private String[] loveAttS;
-    private String[] selfIttS;
-    private String[] loveIttS;
-    private transient Attribute[] selfAtt = new Attribute[6];
-    private transient Attribute[] loveAtt = new Attribute[3];
-    private transient Interest[] selfItt = new Interest[6];
-    private transient Interest[] loveItt = new Interest[3];
-
-    private static int getAttPoint(int i){
-        return i < attps.length ? attps[i] : attps[attps.length - 1];
-    }
-
-    private static int getIttPoint(int i){
-        return i < ittps.length ? ittps[i] : ittps[ittps.length - 1];
-    }
+    final String name;
+    final Map<String, Set<String>> self = new HashMap<>();
+    final Map<String, Set<String>> target = new HashMap<>();
 
     public Person(String name){
         if (name == null) {
@@ -49,73 +26,19 @@ public class Person implements Serializable{
         } else if (name.isEmpty()) {
             throw new IllegalArgumentException("empty name");
         }
-        synchronized (pool){
-            if (pool.containsKey(name)) {
+        synchronized (people){
+            if (people.containsKey(name)) {
                 throw new RuntimeException("this name has already created");
             }
             this.name = name;
-            pool.put(name, this);
+            people.put(name, this);
         }
-    }
-
-    public String getName(){
-        return name;
-    }
-
-    public Gender getSelfGender(){
-        return selfGender;
-    }
-
-    public Gender getLoveGender(){
-        return loveGender;
-    }
-
-    public Attribute[] getSelfAtt(){
-        return selfAtt;
-    }
-
-    public Attribute[] getLoveAtt(){
-        return loveAtt;
-    }
-
-    public Interest[] getSelfItt(){
-        return selfItt;
-    }
-
-    public Interest[] getLoveItt(){
-        return loveItt;
-    }
-
-    void setSelfGender(String s){
-        selfGender = Gender.getGender(s);
-    }
-
-    void setLoveGender(String s){
-        loveGender = Gender.getGender(s);
-    }
-
-    void setSelfAttribute(String[] line){
-        selfAttS = line;
-    }
-
-    void setSelfInterest(String[] line){
-        selfIttS = line;
-    }
-
-    void setLoveAttribute(String[] line){
-        loveAttS = line;
-    }
-
-    void setLoveInterest(String[] line){
-        loveIttS = line;
     }
 
     void updateAttribute(Attribute[] as, String[] ss){
         int sz = ss.length;
         int asz = as.length;
-        Main.log.printf("[Person] %s update att: ", name);
         if (sz <= asz) {
-            Main.log.println("choose all");
             for (int i = 0; i < sz; i++) {
                 as[i] = Attribute.getAttribute(ss[i]);
             }
@@ -127,36 +50,6 @@ public class Person implements Serializable{
             }
             Main.log.printf("choose %s\n", Arrays.toString(as));
         }
-    }
-
-    void updateInterest(Interest[] is, String[] ss){
-        int sz = ss.length;
-        int isz = is.length;
-        Main.log.printf("[Person] %s update itt: ", name);
-        if (sz <= isz) {
-            Main.log.println("choose all");
-            for (int i = 0; i < sz; i++) {
-                is[i] = Interest.getInterest(ss[i]);
-            }
-        } else {
-            LinkedList<String> ls = new LinkedList<>(Arrays.asList(ss));
-            int i = 0;
-            while (i < isz) {
-                is[i++] = Interest.getInterest(ls.remove(rand.nextInt(ls.size())));
-            }
-            Main.log.printf("choose %s\n", Arrays.toString(is));
-        }
-    }
-
-    void update(){
-        Main.log.printf("[Person] %s update self att\n", name);
-        updateAttribute(selfAtt, selfAttS);
-        Main.log.printf("[Person] %s update love att\n", name);
-        updateAttribute(loveAtt, loveAttS);
-        Main.log.printf("[Person] %s update self itt\n", name);
-        updateInterest(selfItt, selfIttS);
-        Main.log.printf("[Person] %s update love itt\n", name);
-        updateInterest(loveItt, loveIttS);
     }
 
     public boolean matchable(Person other){
@@ -199,20 +92,20 @@ public class Person implements Serializable{
         sb.append("name:").append(name).append(", ");
         sb.append(selfGender.getDoc()).append("->").append(loveGender.getDoc()).append(", ");
         sb.append("Attribute:[");
-        for (String att : selfAttS) {
+        for (String att: selfAttS) {
             sb.append(att).append(", ");
         }
         sb.replace(sb.length() - 2, sb.length(), "]->[");
-        for (String att : loveAttS) {
+        for (String att: loveAttS) {
             sb.append(att).append(", ");
         }
         sb.replace(sb.length() - 2, sb.length(), "], ");
         sb.append("Interest:[");
-        for (String itt : selfIttS) {
+        for (String itt: selfIttS) {
             sb.append(itt).append(", ");
         }
         sb.replace(sb.length() - 2, sb.length(), "]->[");
-        for (String itt : loveIttS) {
+        for (String itt: loveIttS) {
             sb.append(itt).append(", ");
         }
         sb.replace(sb.length() - 2, sb.length(), "]]");
@@ -221,9 +114,9 @@ public class Person implements Serializable{
 
     @Override
     public boolean equals(Object obj){
-        if(obj == null) return false;
+        if (obj == null) return false;
         if (this == obj) return true;
-        if(getClass() != obj.getClass()) return false;
+        if (getClass() != obj.getClass()) return false;
         Person q = (Person)obj;
         return name.equals(q.name);
 

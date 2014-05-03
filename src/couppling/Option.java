@@ -21,7 +21,7 @@ public abstract class Option implements Serializable{
     public final BiPredicate<String, String> rule;
 
     public Option(String category, String[] contents){
-        this(category, contents, RuleMaker.equalMatcher);
+        this(category, contents, Objects::equals);
     }
 
     public Option(String category, String[] contents, BiPredicate<String, String> rule){
@@ -36,12 +36,16 @@ public abstract class Option implements Serializable{
         SET.put(category, this);
     }
 
-    public static void add(String category, String content){
-        Option op = SET.get(category);
-        if (op == null) {
-            throw new RuntimeException(category + " doesn't exist");
-        }
-        op.allSet.add(content);
+    public static Option get(String category){
+        return SET.get(category);
+    }
+
+    public void add(String content){
+        allSet.add(content);
+    }
+
+    public boolean contains(String content){
+        return allSet.contains(content);
     }
 
 }
