@@ -1,0 +1,23 @@
+# setting input file name
+file.person=
+# person1,person2 for couple
+# person for left
+file.output=
+
+# program setting file
+list.attribute=attribute.list
+list.interest=interest.list
+list.gender=gender.list
+rule.attribute=
+rule.interest=
+rule.gender=
+point.attribute=[0,1,3,5]
+point.interest=[0,1,3,5]
+
+# logging output file
+# log main control
+log.control=false
+log.file=main.log
+log.person.create=person.log
+log.couple.affinity=affinty.log
+log.couple.match=match.log
