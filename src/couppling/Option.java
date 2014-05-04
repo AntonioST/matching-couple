@@ -12,7 +12,7 @@ import java.util.function.BiPredicate;
  *
  * @author antonio
  */
-public abstract class Option implements Serializable{
+public class Option implements Serializable{
 
     public static final Map<String, Option> SET = new HashMap<>();
     public final String category;
