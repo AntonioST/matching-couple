@@ -21,7 +21,7 @@ import javax.script.ScriptException;
  */
 public class MatchRule{
 
-    private static final String R = "\\w+";
+    private static final String R = "(\\w+)(\\[\\d+(,\\d+)*\\])?";
     private static final Pattern P = Pattern.compile(R);
     private static final String FUNC_NAME = "match";
     private static final String FUNC = "function " + FUNC_NAME + "(){return %s;}";
