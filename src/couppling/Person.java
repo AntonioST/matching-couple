@@ -31,6 +31,7 @@ public class Person implements Serializable{
             }
             this.name = name;
             people.put(name, this);
+            System.out.printf("new Person[%s]\n", name);
         }
     }
 

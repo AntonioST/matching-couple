@@ -34,6 +34,7 @@ public class Option implements Serializable{
         allSet = new HashSet<>();
         allSet.addAll(defSet);
         SET.put(category, this);
+        System.out.printf("new Option[%s]:%s\n", category, defSet.toString());
     }
 
     public static Option get(String category){

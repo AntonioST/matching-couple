@@ -4,18 +4,22 @@
  */
 package couppling;
 
+import couppling.Coupler.Score;
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.function.BiPredicate;
+import java.util.stream.Stream;
 
 /**
  *
@@ -34,8 +38,55 @@ public class Main{
         }
         String inputFileName = args[0];
         String ruleFileName = args[1];
-        String onputFileName = args[2];
-
+        String ouputFileName = args[2];
+        //
+        List<Person> people = null;
+        Coupler c = null;
+        try (BufferedReader r = Files.newBufferedReader(Paths.get(inputFileName))){
+            people = loadPeople(r);
+        } catch (IOException ex){
+            ex.printStackTrace();
+            System.exit(1);
+        }
+        try{
+            List<String> ruleline = Files.readAllLines(Paths.get(ruleFileName));
+            ruleline.removeIf(ln -> ln.startsWith("#"));
+            for (int i = 0, sz = ruleline.size(); i < sz; i++) {
+                String line = ruleline.get(i);
+                if (line.endsWith("\\")) {
+                    ruleline.set(i, line.substring(0, line.length() - 1) + ruleline.get(i + 1));
+                    ruleline.remove(i + 1);
+                    sz--;
+                }
+            }
+            if (ruleline.size() == 1 && !ruleline.get(0).startsWith("return")) {
+                c = new Coupler(new MatchRule(ruleline.get(0)));
+            } else {
+                c = new Coupler(new MatchRule(ruleline));
+            }
+        } catch (IOException ex){
+            ex.printStackTrace();
+            System.exit(1);
+        }
+        try (BufferedWriter w = Files.newBufferedWriter(Paths.get(ouputFileName),
+                                                        StandardOpenOption.CREATE)){
+            for (Score s: c.matchCouple(people)) {
+                w.write(s.self.name);
+                w.write(";");
+                w.write(s.target.name);
+                w.write(";");
+                w.write(Integer.toString(s.score));
+                w.newLine();
+            }
+            for (Person p: people) {
+                w.write(p.name);
+                w.write(";");
+            }
+            w.newLine();
+        } catch (IOException ex){
+            ex.printStackTrace();
+            System.exit(1);
+        }
     }
 
     private static List<Person> loadPeople(BufferedReader reader) throws IOException{
@@ -73,54 +124,13 @@ public class Main{
     }
 
     static List<String> splitCSVLine(List<String> buf, String line){
-        int start = 0;
-        int index;
-        for (; start >= 0;) {
-            index = skipWhileSpace(line, start);
-            if (index == -1) {
-                buf.add(line.substring(start).trim());
-                break;
-            }
-            start = index;
-            if (line.charAt(start) == '"' || line.charAt(start) == '\'') {
-                index = line.indexOf(line.charAt(start), start + 1);
-                if (index == -1) {
-                    throw new RuntimeException("illegal format : lost " + line.charAt(start));
-                }
-                buf.add(line.substring(start + 1, index));
-                int next = line.indexOf(",", index);
-                if (skipWhileSpace(line, index + 1) != next) {
-                    throw new RuntimeException("illegal format : text out of " + line.charAt(start));
-                }
-                if (next == -1) {
-                    break;
-                }
-                start = next + 1;
-            } else if (line.charAt(start) == ',') {
-                buf.add("");
-                start++;
-            } else {
-                index = line.indexOf(',', start);
-                if (index == -1) {
-                    buf.add(line.substring(start).trim());
-                    start = -1;
-                } else {
-                    buf.add(line.substring(start, index).trim());
-                    start = index + 1;
-                }
-            }
-        }
+        Stream.of(line.split(";")).map(String::trim).forEach(buf::add);
         return buf;
-    }
-
-    static int skipWhileSpace(String line, int start){
-        int len = line.length();
-        for (; start < len && Character.isWhitespace(line.charAt(start)); start++);
-        return start < len ? start : -1;
     }
 
     static String[] loadOptionList(String category) throws IOException{
         Path p = Paths.get(category + ".list");
+        System.out.println("find " + p.toString());
         if (!Files.exists(p)) {
             throw new FileNotFoundException(category + ".list");
         }
@@ -129,6 +139,7 @@ public class Main{
 
     static BiPredicate<String, String> loadOptionRule(String category) throws IOException{
         Path p = Paths.get(category + ".rule");
+        System.out.println("find " + p.toString());
         if (!Files.exists(p)) {
             throw new FileNotFoundException(category + ".rule");
         }

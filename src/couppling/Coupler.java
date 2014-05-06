@@ -38,7 +38,11 @@ public class Coupler{
 
     MatchRule rule;
 
-    private Map<Person, List<Score>> calculateAffinity(Collection<Person> c){
+    public Coupler(MatchRule rule){
+        this.rule = rule;
+    }
+
+    Map<Person, List<Score>> calculateAffinity(Collection<Person> c){
         Map<Person, List<Score>> ret = new HashMap();
         c.forEach(p -> ret.put(p, c.stream()
                                .filter(t -> t != p)
@@ -49,53 +53,44 @@ public class Coupler{
         return ret;
     }
 
-    private void matchCouple(List<Person> ps){
-        Map<Person, List<Score>> sc = new HashMap();
-        Map<Person, Deque<Person>> table = new HashMap<>();
+    List<Score> matchCouple(List<Person> ps){
+        Map<Person, List<Score>> table;
         //
-        for (Person p: ps) {
-            sc.put(p, null);
-            table.put(p, null);
-        }
-        //
-        List<Couple> ls = new LinkedList<>();
-        int size = 0;
+        List<Score> result = new LinkedList<>();
+        int size;
         do{
-            size = ls.size();
-            sc = calculateAffinity(table.keySet());
-            table = createTmpMap(sc);
-            ls.addAll(matchCoupleRound(log, table));
-        } while (size != ls.size());
-        //
-        sc = calculateAffinity(table.keySet());
-        //
+            size = result.size();
+            table = calculateAffinity(ps);
+            result.addAll(matchCoupleRound(table));
+        } while (size != result.size());
+        return result;
     }
 
-    private List<Couple> matchCoupleRound(Map<Person, Deque<Person>> table){
-        List<Couple> ls = new LinkedList<>();
+    List<Score> matchCoupleRound(Map<Person, List<Score>> table){
+        List<Score> ret = new LinkedList<>();
         int size = 0;
         int preSize;
         do{
             preSize = size;
-            ls.addAll(matchCoupleFirst(log, table));
-            ls.addAll(matchCoupleChain(log, table));
-            size = ls.size();
+            ret.addAll(matchCoupleFirst(table));
+            ret.addAll(matchCoupleChain(table));
+            size = ret.size();
         } while (preSize != size);
         //
-        ls.addAll(matchCoupleBack(log, table));
+        ret.addAll(matchCoupleBack(table));
         //
-        ls.addAll(matchCoupleSingle(log, table));
+        ret.addAll(matchCoupleSingle(table));
         //
-        return ls;
+        return ret;
     }
 
-    private Map<Person, List<Score>> removeFromTable(Map<Person, List<Score>> table, Person p){
+    Map<Person, List<Score>> removeFromTable(Map<Person, List<Score>> table, Person p){
         table.remove(p);
         table.values().forEach(list -> list.removeIf(it -> it.self == p || it.target == p));
         return table;
     }
 
-    private List<Score> matchCoupleFirst(Map<Person, List<Score>> table){
+    List<Score> matchCoupleFirst(Map<Person, List<Score>> table){
         List<Score> ret = new LinkedList<>();
         table.forEach((self, sls)
           -> sls.stream()
@@ -112,79 +107,47 @@ public class Coupler{
         return ret;
     }
 
-    private List<Score> matchCoupleChain(Map<Person, List<Score>> table){
+    List<Score> matchCoupleChain(Map<Person, List<Score>> table){
         List<Score> ret = new LinkedList<>();
-        boolean escape = true;
-        while (escape) {
-            escape = false;
-            Set<Person> set = new HashSet(table.keySet());
-            for (Person p: set) {
-                List<Person> path = new ArrayList<>(matchCoupleChainFind(log, table, p, 3));
-                int sz = path.size();
-                for (int i = 1; i < sz - 1; i++) {
-                    // pre --> inx --> nxt
-                    Person pre = path.get(i - 1);
-                    if (pre == null) {
-                        continue;
-                    }
-                    Person inx = path.get(i);
-                    Person nxt = path.get(i + 1);
-                    if (nxt == null) {
-                        continue;
-                    }
-                    // person may be null
-                    int i2p = getScore(inx, pre);
-                    int n2i = getScore(nxt, inx);
-                    //
-                    int flag = 0;
-                    String symbo = "";
-                    if (i2p > 0 && n2i > 0) {
-                        // pre <- inx <- nxt
-                        int bpi = i2p + getScore(pre, inx);
-                        int bin = n2i + getScore(inx, nxt);
-                        if (bpi > bin) {
-                            flag = 1;// pre <--> inx <-> nxt
-                            symbo = "<-><>";
-                        } else if (bpi < bin) {
-                            flag = 2;// pre <-> inx <--> nxt
-                            symbo = "<><->";
-                        } else if (i2p > n2i) {
-                            flag = 1;// pre <-- inx <- nxt
-                            symbo = "<-<";
-                        } else {
-                            flag = 2;//pre <- inx <-- nxt
-                            symbo = "<<-";
-                        }
-                    } else if (i2p > 0) {
-                        flag = 1;// pre <- inx x- nxt
-                        symbo = "<x";
-                    } else if (n2i > 0) {
-                        flag = 2;// pre x- inx <- nxt
-                        symbo = "x<";
-                    } else {
-                        // pre x- inx x- nxt
-                    }
-                    if (flag != 0) {
-                        Couple c;
-                        if (flag == 1) {
-                            c = new Couple(pre, inx);
-                            table.remove(pre);
-                            table.remove(inx);
-                            path.set(i, null);
-                            path.set(i - 1, null);
-                        } else if (flag == 2) {
-                            c = new Couple(inx, nxt);
-                            table.remove(inx);
-                            table.remove(nxt);
-                            path.set(i, null);
-                            path.set(i + 1, null);
-                        } else {
-                            throw new IllegalStateException();
-                        }
-                        ret.add(c);
-                        log.printf("Cycle Match : %-5s : %s\n", symbo, c);
-                        escape = true;
-                    }
+        for (Person p: new HashSet<>(table.keySet())) {
+            List<Score> path = matchCoupleChainFind(table, p, 3);
+            if (path.isEmpty()) continue;
+            // pre --> inx --> nxt
+            Score pre = path.get(0);
+            Score nxt = path.get(1);
+            //
+            int flag = 0;
+            if (pre.score > 0 && nxt.score > 0) {
+                // pre <- inx <- nxt
+                int bpi = pre.score + rule.matchScore(pre.target, pre.self);
+                int bin = nxt.score + rule.matchScore(nxt.target, nxt.self);
+                if (bpi > bin) {
+                    flag = 1;// pre <--> inx <-> nxt
+                } else if (bpi < bin) {
+                    flag = 2;// pre <-> inx <--> nxt
+                } else if (pre.score > nxt.score) {
+                    flag = 1;// pre <-- inx <- nxt
+                } else {
+                    flag = 2;//pre <- inx <-- nxt
+                }
+            } else if (pre.score > 0) {
+                flag = 1;// pre <- inx x- nxt
+            } else if (nxt.score > 0) {
+                flag = 2;// pre x- inx <- nxt
+            } else {
+                // pre x- inx x- nxt
+            }
+            if (flag != 0) {
+                if (flag == 1) {
+                    ret.add(pre);
+                    removeFromTable(table, pre.self);
+                    removeFromTable(table, pre.target);
+                } else if (flag == 2) {
+                    ret.add(nxt);
+                    removeFromTable(table, pre.self);
+                    removeFromTable(table, pre.target);
+                } else {
+                    throw new IllegalStateException();
                 }
             }
         }
@@ -192,30 +155,18 @@ public class Coupler{
     }
 
     // may be unnessary
-    private List<Score> matchCoupleBack(Map<Person, List<Score>> table){
-        List<Score> ls = new LinkedList<>();
-        Set<Person> set = new HashSet(table.keySet());
-        for (Person p: set) {
-            List<Person> path = new ArrayList<>(matchCoupleChainFind(log, table, p, 2));
-            int sz = path.size();
-            for (int i = 0; i < sz - 1; i++) {
-                Person pi = path.get(i);
-                Person qi = path.get(i + 1);
-                if (getScore(qi, qi) > 0) {
-                    assert false;
-                    Couple c = new Couple(pi, qi);
-                    ls.add(c);
-                    table.remove(pi);
-                    table.remove(qi);
-                    i++;
-                    log.printf("Back Match : %s\n", c);
-                }
-            }
-        }
-        return ls;
+    List<Score> matchCoupleBack(Map<Person, List<Score>> table){
+        return new HashSet<>(table.keySet()).stream()
+          .map(p -> matchCoupleChainFind(table, p, 2))
+          .filter(ls -> !ls.isEmpty())
+          .map(ls -> ls.get(0))
+          .filter(s -> s.score > 0)
+          .peek(s -> removeFromTable(table, s.self))
+          .peek(s -> removeFromTable(table, s.target))
+          .collect(Collectors.toList());
     }
 
-    private List<Score> matchCoupleSingle(Map<Person, List<Score>> table){
+    List<Score> matchCoupleSingle(Map<Person, List<Score>> table){
         List<Score> ret = new LinkedList<>();
         table.keySet().stream()
           .map(p -> matchCoupleChainFind(table, p, 2))
@@ -229,7 +180,7 @@ public class Coupler{
         return ret;
     }
 
-    private List<Score> matchCoupleChainFind(Map<Person, List<Score>> table, Person start, int limit){
+    List<Score> matchCoupleChainFind(Map<Person, List<Score>> table, Person start, int limit){
         if (!table.containsKey(start)) {
             return Collections.EMPTY_LIST;
         }
