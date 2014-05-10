@@ -35,18 +35,19 @@ public class Person implements Serializable{
         }
     }
 
-    public int match(Person target, String category){
-        Set<String> selfops = self.get(category);
-        Set<String> targetops = target.self.get(category);
+    public int match(Person other, String category){
+        Set<String> selfops = target.get(category);
+        Set<String> targetops = other.self.get(category);
         if (selfops == null || targetops == null) return 0;
         Option op = Option.get(category);
         if (op == null) {
             throw new RuntimeException("no such category");
         }
-        return selfops.parallelStream().mapToInt(a
-          -> targetops.parallelStream()
-          .mapToInt(b -> op.rule.test(a, b) ? 1 : 0).sum()
-        ).sum();
+        return selfops
+          .parallelStream().mapToInt(a
+            -> targetops.parallelStream()
+            .mapToInt(b -> op.rule.test(a, b) ? 1 : 0).sum()
+          ).sum();
     }
 
     @Override
@@ -65,4 +66,10 @@ public class Person implements Serializable{
         hash = 41 * hash + Objects.hashCode(this.name);
         return hash;
     }
+
+    @Override
+    public String toString(){
+        return name;
+    }
+
 }

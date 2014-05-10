@@ -6,7 +6,7 @@
 
 package couppling;
 
-import cclo.ngraph.util.loader.LineBaseLoader;
+import cclo.util.loader.LineBaseLoader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -56,6 +56,13 @@ public class RuleLoader extends LineBaseLoader<BiPredicate<String, String>>{
                 tmp = (a, b) -> list.contains(a) || list.contains(b);
             } else {
                 tmp = (a, b) -> lhs.equals(a) || lhs.equals(b);
+            }
+        } else if (lhs.equals("*")) {
+            if (rhs.startsWith("[") && rhs.endsWith("]")) {
+                List<String> list = Arrays.asList(rhs.substring(1, rhs.length() - 1).split(" *, *"));
+                tmp = (a, b) -> list.contains(a) || list.contains(b);
+            } else {
+                tmp = (a, b) -> rhs.equals(a) || rhs.equals(b);
             }
         } else {
             List<String> lset;

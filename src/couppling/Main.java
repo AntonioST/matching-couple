@@ -43,12 +43,14 @@ public class Main{
         List<Person> people = null;
         Coupler c = null;
         try (BufferedReader r = Files.newBufferedReader(Paths.get(inputFileName))){
+            System.out.println("load people : " + inputFileName);
             people = loadPeople(r);
         } catch (IOException ex){
             ex.printStackTrace();
             System.exit(1);
         }
         try{
+            System.out.println("load rule : " + ruleFileName);
             List<String> ruleline = Files.readAllLines(Paths.get(ruleFileName));
             ruleline.removeIf(ln -> ln.startsWith("#"));
             for (int i = 0, sz = ruleline.size(); i < sz; i++) {
@@ -70,7 +72,11 @@ public class Main{
         }
         try (BufferedWriter w = Files.newBufferedWriter(Paths.get(ouputFileName),
                                                         StandardOpenOption.CREATE)){
-            for (Score s: c.matchCouple(people)) {
+            List<Person> left = new ArrayList<>();
+            List<Score> match = c.matchCouple(people, left);
+            w.write("couple;" + match.size() + ";score");
+            w.newLine();
+            for (Score s: match) {
                 w.write(s.self.name);
                 w.write(";");
                 w.write(s.target.name);
@@ -78,9 +84,11 @@ public class Main{
                 w.write(Integer.toString(s.score));
                 w.newLine();
             }
-            for (Person p: people) {
+            w.write("left;" + left.size());
+            w.newLine();
+            for (Person p: left) {
                 w.write(p.name);
-                w.write(";");
+                w.newLine();
             }
             w.newLine();
         } catch (IOException ex){
@@ -101,8 +109,9 @@ public class Main{
         size = buf.size();
         for (int i = 1; i + 1 < size; i += 2) {
             String c = buf.get(i);
-            if (!c.equals(buf.get(i + 1))) {
-                throw new RuntimeException("head format wrong");
+            String n = buf.get(i + 1);
+            if (!n.isEmpty() && !c.equals(n)) {
+                throw new RuntimeException("head format wrong : " + c + " != " + n);
             }
             new Option(c, loadOptionList(c), loadOptionRule(c));
             category.add(c);
@@ -125,6 +134,9 @@ public class Main{
 
     static List<String> splitCSVLine(List<String> buf, String line){
         Stream.of(line.split(";")).map(String::trim).forEach(buf::add);
+        if (line.endsWith(";")) {
+            buf.add("");
+        }
         return buf;
     }
 

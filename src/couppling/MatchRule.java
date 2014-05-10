@@ -6,12 +6,11 @@
 
 package couppling;
 
-import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Stream;
 import javax.script.Invocable;
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -23,19 +22,22 @@ import javax.script.ScriptException;
  */
 public class MatchRule{
 
-    private static final String R = "\\$(\\w+)(\\[\\d+(,\\d+)*\\])?";
+    //\$(\w+)(\[\d+(,\d+)*\])?
+    //$test
+    private static final String R = "\\$(\\w+)";
     private static final Pattern P = Pattern.compile(R);
     private static final String FUNC_NAME = "match";
     private static final String FUNC_HEAD = "function " + FUNC_NAME + "(){";
     private static final String FUNC_LINE = FUNC_HEAD + "return %s;}";
     private static final String FUNC_LINES = FUNC_HEAD + "%s;}";
     private final ScriptEngine engine = new ScriptEngineManager().getEngineByName("nashorn");
-    private final Map<String, int[]> set = new HashMap<>();
+    private final Set<String> set = new HashSet<>();
 
     public MatchRule(String eval){
-        initSet(eval);
         try{
-            engine.eval(String.format(FUNC_LINE, eval));
+            String line = String.format(FUNC_LINE, initSet(eval));
+            System.out.println("eval : " + line);
+            engine.eval(line);
         } catch (ScriptException ex){
             throw new RuntimeException(ex);
         }
@@ -43,45 +45,32 @@ public class MatchRule{
     }
 
     public MatchRule(List<String> block){
-        String eval = String.join(";", block);
-        initSet(eval);
         try{
-            engine.eval(String.format(FUNC_LINES, eval));
+            String line = String.format(FUNC_LINES, initSet(String.join(";", block)));
+            System.out.println("eval : " + line);
+            engine.eval(line);
         } catch (ScriptException ex){
             throw new RuntimeException(ex);
         }
     }
 
-    private void initSet(String line){
+    private String initSet(String line){
         Matcher m = P.matcher(line);
-        int[] empty = new int[0];
         if (m.find()) {
             do{
                 String key = m.group(1);
-                if (m.group(2) != null) {
-                    String p = m.group(2);
-                    p = p.substring(1, p.length() - 1);
-                    set.put(key, Stream.of(p.split(",")).mapToInt(Integer::parseInt).toArray());
-                } else {
-                    set.put(key, empty);
-                }
-                line = m.replaceAll(key);
+                System.out.println("catch " + key);
+                set.add(key);
+                line = m.replaceFirst(key);
                 engine.put(key, null);
             } while (m.reset(line).find());
         }
+        System.out.println("init set :" + set);
+        return line;
     }
 
     public int matchScore(Person p, Person q){
-        set.forEach((k, ps) -> {
-            int i = p.match(q, k);
-            if (ps.length == 0) {
-            } else if (i >= ps.length) {
-                i = ps[ps.length - 1];
-            } else {
-                i = ps[i];
-            }
-            engine.put(k, i);
-        });
+        set.forEach(k -> engine.put(k, p.match(q, k)));
         Object ret = null;
         try{
             ret = ((Invocable)engine).invokeFunction(FUNC_NAME);
@@ -90,8 +79,8 @@ public class MatchRule{
         }
         if (ret == null) {
             throw new RuntimeException("null return");
-        } else if (ret instanceof Integer) {
-            return (Integer)ret;
+        } else if (ret instanceof Number) {
+            return ((Number)ret).intValue();
         }
         throw new RuntimeException("unknown return type : " + ret.getClass());
     }

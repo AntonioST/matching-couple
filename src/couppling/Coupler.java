@@ -5,7 +5,9 @@
 package couppling;
 
 import java.util.*;
+import java.util.function.ToIntBiFunction;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  *
@@ -42,74 +44,96 @@ public class Coupler{
         this.rule = rule;
     }
 
+    void printTable(Map<Person, List<Score>> table){
+        List<Person> ls = new ArrayList<>(table.keySet());
+        ls.sort(Comparator.comparing(p -> p.name));
+        ToIntBiFunction<List<Score>, Person> extra = (t, p) -> {
+            for (Score s: t) {
+                if (s.self.equals(p)) return s.score;
+            }
+            return -1;
+        };
+        ls.forEach(p -> {
+            StringJoiner j = new StringJoiner(",", "[", "]");
+            List<Score> row = table.get(p);
+            ls.stream()
+              .mapToInt(t -> extra.applyAsInt(row, t))
+              .mapToObj(i -> String.format("%2d", i))
+              .forEach(j::add);
+            System.out.println(p.name + j.toString());
+        });
+    }
+
     Map<Person, List<Score>> calculateAffinity(Collection<Person> c){
         Map<Person, List<Score>> ret = new HashMap();
         c.forEach(p -> ret.put(p, c.stream()
                                .filter(t -> t != p)
                                .map(t -> new Score(p, t, rule.matchScore(p, t)))
-                               .filter(s -> s.score >= 0)
+                               .filter(s -> s.score > 0)
                                .sorted()
                                .collect(Collectors.toList())));
         return ret;
     }
 
-    List<Score> matchCouple(List<Person> ps){
-        Map<Person, List<Score>> table;
+    List<Score> matchCouple(List<Person> ps, List<Person> left){
+        left.clear();
+        System.out.println("matching");
+        Map<Person, List<Score>> table = calculateAffinity(ps);
         //
-        List<Score> result = new LinkedList<>();
-        int size;
-        do{
-            size = result.size();
-            table = calculateAffinity(ps);
-            result.addAll(matchCoupleRound(table));
-        } while (size != result.size());
+        List<Score> result = matchCoupleRound(table);
+        ps.stream()
+          .filter(p -> result.stream().noneMatch(s -> s.self.equals(p) || s.target.equals(p)))
+          .forEach(left::add);
+        System.out.println("match " + result);
+        System.out.println("left " + left);
         return result;
     }
 
     List<Score> matchCoupleRound(Map<Person, List<Score>> table){
-        List<Score> ret = new LinkedList<>();
         int size = 0;
         int preSize;
+        List<Score> ret = new ArrayList<>();
         do{
+            printTable(table);
             preSize = size;
             ret.addAll(matchCoupleFirst(table));
             ret.addAll(matchCoupleChain(table));
             size = ret.size();
         } while (preSize != size);
-        //
         ret.addAll(matchCoupleBack(table));
-        //
         ret.addAll(matchCoupleSingle(table));
-        //
         return ret;
     }
 
     Map<Person, List<Score>> removeFromTable(Map<Person, List<Score>> table, Person p){
         table.remove(p);
-        table.values().forEach(list -> list.removeIf(it -> it.self == p || it.target == p));
+        table.values()
+          .forEach(list -> list.removeIf(it -> it.self.equals(p) || it.target.equals(p)));
         return table;
     }
 
     List<Score> matchCoupleFirst(Map<Person, List<Score>> table){
-        List<Score> ret = new LinkedList<>();
-        table.forEach((self, sls)
-          -> sls.stream()
-          .map(t -> table.get(t.target))
-          .filter(tls -> tls.size() > 0)
-          .map(tls -> tls.get(0))
-          .filter(score -> score.target == self)
-          .findAny()
-          .ifPresent(s -> ret.add(s)));
-        ret.forEach(score -> {
-            removeFromTable(table, score.self);
-            removeFromTable(table, score.target);
+        System.out.println("matching first");
+        List<Score> ret = new ArrayList<>();
+        new ArrayList<>(table.keySet()).forEach(self -> {
+            Stream.of(table.get(self))
+              .filter(sls -> sls != null && !sls.isEmpty())
+              .map(sls -> table.get(sls.get(0).target))
+              .filter(tls -> tls != null && !tls.isEmpty())
+              .map(tls -> tls.get(0))
+              .filter(sc -> sc.target.equals(self))
+              .peek(sc -> removeFromTable(table, sc.self))
+              .peek(sc -> removeFromTable(table, sc.target))
+              .forEach(ret::add);
         });
+        System.out.println(ret);
         return ret;
     }
 
     List<Score> matchCoupleChain(Map<Person, List<Score>> table){
+        System.out.println("matching chain");
         List<Score> ret = new LinkedList<>();
-        for (Person p: new HashSet<>(table.keySet())) {
+        for (Person p: new ArrayList<>(table.keySet())) {
             List<Score> path = matchCoupleChainFind(table, p, 3);
             if (path.isEmpty()) continue;
             // pre --> inx --> nxt
@@ -151,12 +175,14 @@ public class Coupler{
                 }
             }
         }
+        System.out.println(ret);
         return ret;
     }
 
     // may be unnessary
     List<Score> matchCoupleBack(Map<Person, List<Score>> table){
-        return new HashSet<>(table.keySet()).stream()
+        System.out.println("matching back");
+        List<Score> ret = new ArrayList<>(table.keySet()).stream()
           .map(p -> matchCoupleChainFind(table, p, 2))
           .filter(ls -> !ls.isEmpty())
           .map(ls -> ls.get(0))
@@ -164,19 +190,24 @@ public class Coupler{
           .peek(s -> removeFromTable(table, s.self))
           .peek(s -> removeFromTable(table, s.target))
           .collect(Collectors.toList());
+        System.out.println(ret);
+        return ret;
     }
 
     List<Score> matchCoupleSingle(Map<Person, List<Score>> table){
+        System.out.println("matching single");
         List<Score> ret = new LinkedList<>();
-        table.keySet().stream()
+        new ArrayList<>(table.keySet()).stream()
           .map(p -> matchCoupleChainFind(table, p, 2))
           .filter(r -> r.size() >= 2)
           .findAny()
-          .ifPresent(r -> ret.add(r.get(0)));
-        ret.forEach(sc -> {
-            removeFromTable(table, sc.self);
-            removeFromTable(table, sc.target);
-        });
+          .map(r -> r.get(0))
+          .ifPresent(sc -> {
+              ret.add(sc);
+              removeFromTable(table, sc.self);
+              removeFromTable(table, sc.target);
+          });
+        System.out.println(ret);
         return ret;
     }
 
