@@ -13,7 +13,7 @@ import java.util.stream.Stream;
  *
  * @author antonio
  */
-public class Coupler{
+public class MatchHandle{
 
     public static class Score implements Comparable<Score>{
 
@@ -40,7 +40,7 @@ public class Coupler{
 
     MatchRule rule;
 
-    public Coupler(MatchRule rule){
+    public MatchHandle(MatchRule rule){
         this.rule = rule;
     }
 

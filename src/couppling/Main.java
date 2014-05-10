@@ -4,7 +4,7 @@
  */
 package couppling;
 
-import couppling.Coupler.Score;
+import couppling.MatchHandle.Score;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
@@ -38,7 +38,7 @@ public class Main{
         String ouputFileName = args[2];
         //
         List<Person> people = null;
-        Coupler c = null;
+        MatchHandle c = null;
         try (BufferedReader r = Files.newBufferedReader(Paths.get(inputFileName))){
             System.out.println("load people : " + inputFileName);
             people = loadPeople(r);
@@ -59,9 +59,9 @@ public class Main{
                 }
             }
             if (ruleline.size() == 1 && !ruleline.get(0).startsWith("return")) {
-                c = new Coupler(new MatchRule(ruleline.get(0)));
+                c = new MatchHandle(new MatchRule(ruleline.get(0)));
             } else {
-                c = new Coupler(new MatchRule(ruleline));
+                c = new MatchHandle(new MatchRule(ruleline));
             }
         } catch (IOException ex){
             ex.printStackTrace();
