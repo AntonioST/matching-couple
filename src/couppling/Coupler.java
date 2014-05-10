@@ -113,7 +113,7 @@ public class Coupler{
     }
 
     List<Score> matchCoupleFirst(Map<Person, List<Score>> table){
-        System.out.println("matching first");
+        System.out.print("matching first");
         List<Score> ret = new ArrayList<>();
         new ArrayList<>(table.keySet()).forEach(self -> {
             Stream.of(table.get(self))
@@ -131,7 +131,7 @@ public class Coupler{
     }
 
     List<Score> matchCoupleChain(Map<Person, List<Score>> table){
-        System.out.println("matching chain");
+        System.out.print("matching chain");
         List<Score> ret = new LinkedList<>();
         for (Person p: new ArrayList<>(table.keySet())) {
             List<Score> path = matchCoupleChainFind(table, p, 3);
@@ -181,7 +181,7 @@ public class Coupler{
 
     // may be unnessary
     List<Score> matchCoupleBack(Map<Person, List<Score>> table){
-        System.out.println("matching back");
+        System.out.print("matching back");
         List<Score> ret = new ArrayList<>(table.keySet()).stream()
           .map(p -> matchCoupleChainFind(table, p, 2))
           .filter(ls -> !ls.isEmpty())
@@ -195,7 +195,7 @@ public class Coupler{
     }
 
     List<Score> matchCoupleSingle(Map<Person, List<Score>> table){
-        System.out.println("matching single");
+        System.out.print("matching single");
         List<Score> ret = new LinkedList<>();
         new ArrayList<>(table.keySet()).stream()
           .map(p -> matchCoupleChainFind(table, p, 2))

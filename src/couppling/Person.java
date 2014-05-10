@@ -16,8 +16,8 @@ public class Person implements Serializable{
     private static final WeakHashMap<String, Person> people = new WeakHashMap<>();
     //
     final String name;
-    final Map<String, Set<String>> self = new HashMap<>();
-    final Map<String, Set<String>> target = new HashMap<>();
+    final Map<String, List<String>> self = new HashMap<>();
+    final Map<String, List<String>> target = new HashMap<>();
 
     public Person(String name){
         if (name == null) {
@@ -31,13 +31,13 @@ public class Person implements Serializable{
             }
             this.name = name;
             people.put(name, this);
-            System.out.printf("new Person[%s]\n", name);
+            System.out.println("+Person " + name);
         }
     }
 
     public int match(Person other, String category){
-        Set<String> selfops = target.get(category);
-        Set<String> targetops = other.self.get(category);
+        List<String> selfops = target.get(category);
+        List<String> targetops = other.self.get(category);
         if (selfops == null || targetops == null) return 0;
         Option op = Option.get(category);
         if (op == null) {

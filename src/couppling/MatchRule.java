@@ -36,7 +36,7 @@ public class MatchRule{
     public MatchRule(String eval){
         try{
             String line = String.format(FUNC_LINE, initSet(eval));
-            System.out.println("eval : " + line);
+            System.out.println("  eval : " + line);
             engine.eval(line);
         } catch (ScriptException ex){
             throw new RuntimeException(ex);
@@ -47,7 +47,7 @@ public class MatchRule{
     public MatchRule(List<String> block){
         try{
             String line = String.format(FUNC_LINES, initSet(String.join(";", block)));
-            System.out.println("eval : " + line);
+            System.out.println("  eval : " + line);
             engine.eval(line);
         } catch (ScriptException ex){
             throw new RuntimeException(ex);
@@ -59,13 +59,12 @@ public class MatchRule{
         if (m.find()) {
             do{
                 String key = m.group(1);
-                System.out.println("catch " + key);
                 set.add(key);
                 line = m.replaceFirst(key);
                 engine.put(key, null);
             } while (m.reset(line).find());
         }
-        System.out.println("init set :" + set);
+        System.out.println("  init set :" + set);
         return line;
     }
 

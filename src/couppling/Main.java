@@ -14,10 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
+import java.util.*;
 import java.util.function.BiPredicate;
 import java.util.stream.Stream;
 
@@ -116,6 +113,7 @@ public class Main{
             new Option(c, loadOptionList(c), loadOptionRule(c));
             category.add(c);
         }
+        Map<String, Set<String>> record = new HashMap<>();
         while ((line = reader.readLine()) != null) {
             buf.clear();
             if (splitCSVLine(buf, line).size() != size) {
@@ -124,11 +122,23 @@ public class Main{
             Person p = new Person(buf.get(0));
             for (int i = 0, len = category.size(); i < len; i++) {
                 String c = category.get(i);
-                p.self.put(c, new HashSet<>(Arrays.asList(buf.get(2 * i + 1).split(","))));
-                p.target.put(c, new HashSet<>(Arrays.asList(buf.get(2 * i + 2).split(","))));
+                List<String> tmp = Arrays.asList(buf.get(2 * i + 1).split(","));
+                record.computeIfAbsent(c, k -> new HashSet<>()).addAll(tmp);
+                p.self.put(c, new ArrayList<>(tmp));
+                tmp = Arrays.asList(buf.get(2 * i + 2).split(","));
+                record.computeIfAbsent(c, k -> new HashSet<>()).addAll(tmp);
+                p.target.put(c, new ArrayList<>(tmp));
             }
             people.add(p);
         }
+        record.keySet().forEach(c -> {
+            Option op = Option.get(c);
+            Set<String> set = record.get(c);
+            set.removeIf(op::contains);
+            if (!set.isEmpty()) {
+                System.out.println("?" + c + set);
+            }
+        });
         return people;
     }
 
